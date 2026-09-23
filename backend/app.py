@@ -162,7 +162,8 @@ def parse_document(doc_id):
         'entities_count': result['entities_count'],
         'relations_count': result['relations_count'],
         'triples': result['triples'][:50],  # 返回前50个三元组
-        'entities': result['entities'][:50]
+        'entities': result['entities'][:50],
+        'merged_entities': result.get('merged_entities', [])  # 本次消歧合并的同义实体
     })
 
 
@@ -279,6 +280,30 @@ def get_statistics():
     """获取图谱统计信息"""
     stats = graph_builder.get_statistics()
     return jsonify(stats)
+
+
+# ==================== 实体消歧API ====================
+
+@app.route('/api/graph/aliases', methods=['GET'])
+def list_aliases():
+    """获取所有标准实体及其别名列表"""
+    return jsonify({'alias_groups': graph_storage.get_alias_groups()})
+
+
+@app.route('/api/graph/aliases', methods=['POST'])
+def add_entity_alias():
+    """手动添加实体别名；若别名对应实体已存在，则触发实体合并"""
+    data = request.json
+    alias = data.get('alias')
+    canonical = data.get('canonical')
+
+    if not alias or not canonical:
+        return jsonify({'error': '缺少 alias 或 canonical 字段'}), 400
+
+    result = graph_storage.add_alias(alias, canonical)
+    if not result.get('success'):
+        return jsonify(result), 400
+    return jsonify(result)
 
 
 # ==================== 问答API ====================

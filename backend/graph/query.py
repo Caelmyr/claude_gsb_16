@@ -12,17 +12,19 @@ class GraphQuery:
         self.storage = storage
 
     def query_entity(self, entity_text: str) -> Dict:
-        """查询单个实体及其关系"""
+        """查询单个实体及其关系（支持用别名查询，自动定位到合并后的实体）"""
         entity = self.storage.get_entity(entity_text)
         if not entity:
             return {'found': False, 'entity': None, 'relations': []}
 
-        relations = self.storage.get_entity_relations(entity_text)
+        # 归并后统一使用标准名查询关系
+        canonical = entity['text']
+        relations = self.storage.get_entity_relations(canonical)
 
         # 构建关联实体
         related_entities = []
         for rel in relations:
-            if rel['subject'] == entity_text:
+            if rel['subject'] == canonical:
                 related_entities.append({
                     'entity': rel['object'],
                     'type': rel['object_type'],
@@ -63,7 +65,9 @@ class GraphQuery:
         return results
 
     def query_path(self, start_entity: str, end_entity: str, max_depth: int = 3) -> List[List[Dict]]:
-        """查询两个实体之间的路径"""
+        """查询两个实体之间的路径（端点支持别名）"""
+        start_entity = self.storage.resolve_name(start_entity)
+        end_entity = self.storage.resolve_name(end_entity)
         paths = []
         visited = set()
         self._dfs_paths(start_entity, end_entity, max_depth, [], visited, paths)
@@ -98,7 +102,8 @@ class GraphQuery:
         visited.remove(current)
 
     def query_subgraph(self, center_entity: str, depth: int = 2) -> Dict:
-        """查询以某实体为中心的子图"""
+        """查询以某实体为中心的子图（中心实体支持别名）"""
+        center_entity = self.storage.resolve_name(center_entity)
         nodes = []
         links = []
         visited = set()

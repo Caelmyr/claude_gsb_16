@@ -665,6 +665,17 @@
                     </div>
                 `;
 
+                // 展示合并保留的别名
+                const aliases = (data.entity && data.entity.aliases) || [];
+                if (aliases.length > 0) {
+                    html += `
+                        <div class="detail-row">
+                            <span class="detail-label">别名</span>
+                            <span class="detail-value">${aliases.join('、')}</span>
+                        </div>
+                    `;
+                }
+
                 if (data.related_entities && data.related_entities.length > 0) {
                     html += '<div style="margin-top:15px;"><div class="detail-label">关联实体:</div>';
                     data.related_entities.forEach(rel => {
@@ -694,7 +705,11 @@
         function showTooltip(event, node) {
             const tooltip = document.createElement('div');
             tooltip.className = 'tooltip';
-            tooltip.innerHTML = `<strong>${node.label}</strong><br>类型: ${node.type}`;
+            let tipHtml = `<strong>${node.label}</strong><br>类型: ${node.type}`;
+            if (node.aliases && node.aliases.length > 0) {
+                tipHtml += `<br>别名: ${node.aliases.join('、')}`;
+            }
+            tooltip.innerHTML = tipHtml;
             tooltip.style.left = (event.pageX + 10) + 'px';
             tooltip.style.top = (event.pageY - 10) + 'px';
             document.body.appendChild(tooltip);
@@ -745,17 +760,20 @@
         // 搜索实体
         function searchEntities() {
             const keyword = document.getElementById('searchInput').value.toLowerCase();
+            // 匹配标准名或别名，搜索任一名称都能定位到合并后的实体
+            const matched = d => d.label.toLowerCase().includes(keyword) ||
+                (d.aliases && d.aliases.some(a => a.toLowerCase().includes(keyword)));
 
             g.selectAll('.node circle')
                 .attr('opacity', d => {
                     if (!keyword) return 1;
-                    return d.label.toLowerCase().includes(keyword) ? 1 : 0.2;
+                    return matched(d) ? 1 : 0.2;
                 });
 
             g.selectAll('.node text')
                 .attr('opacity', d => {
                     if (!keyword) return 1;
-                    return d.label.toLowerCase().includes(keyword) ? 1 : 0.2;
+                    return matched(d) ? 1 : 0.2;
                 });
         }
 
