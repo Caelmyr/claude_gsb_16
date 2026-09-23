@@ -1,5 +1,5 @@
 """
-图谱查询模块 - 支持多种查询方式
+图谱查询模块 - 支持多种查询方式（同义名称透明解析）
 """
 from typing import List, Dict, Optional
 from backend.graph.storage import GraphStorage
@@ -12,17 +12,18 @@ class GraphQuery:
         self.storage = storage
 
     def query_entity(self, entity_text: str) -> Dict:
-        """查询单个实体及其关系"""
+        """查询单个实体及其关系（输入全称、简称、缩写均可）"""
         entity = self.storage.get_entity(entity_text)
         if not entity:
             return {'found': False, 'entity': None, 'relations': []}
 
-        relations = self.storage.get_entity_relations(entity_text)
+        canonical = entity['text']
+        relations = self.storage.get_entity_relations(canonical)
 
         # 构建关联实体
         related_entities = []
         for rel in relations:
-            if rel['subject'] == entity_text:
+            if rel['subject'] == canonical:
                 related_entities.append({
                     'entity': rel['object'],
                     'type': rel['object_type'],
@@ -45,7 +46,12 @@ class GraphQuery:
         }
 
     def query_relation(self, subject: str = None, predicate: str = None, obj: str = None) -> List[Dict]:
-        """查询关系"""
+        """查询关系（支持别名输入）"""
+        if subject:
+            subject, _ = self.storage.resolve_name(subject)
+        if obj:
+            obj, _ = self.storage.resolve_name(obj)
+
         all_relations = self.storage.get_all_relations()
         results = []
 
@@ -63,7 +69,10 @@ class GraphQuery:
         return results
 
     def query_path(self, start_entity: str, end_entity: str, max_depth: int = 3) -> List[List[Dict]]:
-        """查询两个实体之间的路径"""
+        """查询两个实体之间的路径（支持别名输入）"""
+        start_entity, _ = self.storage.resolve_name(start_entity)
+        end_entity, _ = self.storage.resolve_name(end_entity)
+
         paths = []
         visited = set()
         self._dfs_paths(start_entity, end_entity, max_depth, [], visited, paths)
@@ -98,12 +107,13 @@ class GraphQuery:
         visited.remove(current)
 
     def query_subgraph(self, center_entity: str, depth: int = 2) -> Dict:
-        """查询以某实体为中心的子图"""
+        """查询以某实体为中心的子图（支持别名输入）"""
+        canonical, _ = self.storage.resolve_name(center_entity)
         nodes = []
         links = []
         visited = set()
 
-        self._collect_subgraph(center_entity, depth, visited, nodes, links)
+        self._collect_subgraph(canonical, depth, visited, nodes, links)
 
         return {'nodes': nodes, 'links': links}
 
@@ -121,7 +131,8 @@ class GraphQuery:
                 'id': entity_data['id'],
                 'label': entity,
                 'type': entity_data['type'],
-                'count': entity_data.get('count', 1)
+                'count': entity_data.get('count', 1),
+                'aliases': entity_data.get('aliases', [])
             })
 
         relations = self.storage.get_entity_relations(entity)
@@ -146,7 +157,7 @@ class GraphQuery:
         return [e for e in entities if e['type'] == entity_type]
 
     def query_keyword(self, keyword: str) -> Dict:
-        """关键词查询"""
+        """关键词查询（规范名与别名均可命中）"""
         entities = self.storage.search_entities(keyword)
         entity_texts = [e['text'] for e in entities]
 

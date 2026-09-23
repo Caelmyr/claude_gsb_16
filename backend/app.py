@@ -20,10 +20,10 @@ from backend.qa.dialogue import DialogueManager
 app = Flask(__name__, static_folder='../frontend', static_url_path='')
 CORS(app)
 
-# 初始化组件
+# 初始化组件（共享同一个图谱存储实例）
 nlp_pipeline = NLPPipeline()
-graph_builder = GraphBuilder()
 graph_storage = GraphStorage()
+graph_builder = GraphBuilder(graph_storage)
 graph_query = GraphQuery(graph_storage)
 answer_generator = AnswerGenerator(graph_storage)
 dialogue_manager = DialogueManager()
@@ -161,6 +161,8 @@ def parse_document(doc_id):
         'doc_id': doc_id,
         'entities_count': result['entities_count'],
         'relations_count': result['relations_count'],
+        'merged_count': result.get('merged_count', 0),
+        'merge_groups': result.get('merge_groups', []),
         'triples': result['triples'][:50],  # 返回前50个三元组
         'entities': result['entities'][:50]
     })

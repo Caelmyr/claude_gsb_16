@@ -593,7 +593,11 @@
             const result = document.getElementById('parseResult');
 
             const entitiesHtml = data.entities.slice(0, 20).map(e =>
-                `<span class="entity-tag ${e.type.toLowerCase()}">${e.text} (${e.type})</span>`
+                `<span class="entity-tag ${e.type.toLowerCase()}">${e.text} (${e.type})` +
+                (e.aliases && e.aliases.length
+                    ? `<span style="font-size:11px;opacity:0.75;"> ＝ ${e.aliases.join(' / ')}</span>`
+                    : '') +
+                `</span>`
             ).join('');
 
             const triplesHtml = data.triples.slice(0, 15).map(t => `
@@ -603,6 +607,15 @@
                     <span class="triple-object">${t[2]}</span>
                 </div>
             `).join('');
+
+            const mergedCount = data.merged_count || 0;
+            const groupsHtml = (data.merge_groups || []).slice(0, 10).map(g =>
+                `<div style="padding:4px 0;font-size:13px;">
+                    <strong>${g.canonical}</strong>
+                    <span style="color:#888;"> 合并了 </span>
+                    ${g.aliases.map(a => `<span style="color:#4a6cf7;">${a}</span>`).join('、')}
+                </div>`
+            ).join('');
 
             result.innerHTML = `
                 <div class="stat-cards">
@@ -618,9 +631,19 @@
                         <div class="stat-value">${data.triples.length}</div>
                         <div class="stat-label">三元组</div>
                     </div>
+                    <div class="stat-card">
+                        <div class="stat-value" style="color:#4a6cf7;">${mergedCount}</div>
+                        <div class="stat-label">消歧合并</div>
+                    </div>
                 </div>
 
+                ${mergedCount > 0 ? `
                 <div class="result-item">
+                    <div class="result-label">同义实体合并（原始名称保留为别名，搜索任一名称均可定位）</div>
+                    <div>${groupsHtml}</div>
+                </div>` : ''}
+
+                <div class="result-item" ${mergedCount > 0 ? 'style="margin-top:15px;"' : ''}>
                     <div class="result-label">识别实体</div>
                     <div class="entity-tags">${entitiesHtml}</div>
                 </div>

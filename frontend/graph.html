@@ -374,7 +374,7 @@
                     <h2 class="panel-title">图谱控制</h2>
 
                     <div class="search-box">
-                        <input type="text" id="searchInput" placeholder="搜索实体..." onkeyup="searchEntities()">
+                        <input type="text" id="searchInput" placeholder="搜索实体（支持简称/别名，如 北大、中科院）..." onkeyup="searchEntities()">
                     </div>
 
                     <div class="stats-grid">
@@ -665,6 +665,19 @@
                     </div>
                 `;
 
+                const aliases = data.entity && data.entity.aliases ? data.entity.aliases
+                    : (node.aliases || []);
+                if (aliases && aliases.length > 0) {
+                    html += `
+                        <div class="detail-row" style="align-items:flex-start;">
+                            <span class="detail-label">别名</span>
+                            <span class="detail-value" style="line-height:1.6;">
+                                ${aliases.map(a => `<span style="display:inline-block;background:#f0f4ff;border-radius:4px;padding:1px 7px;margin:2px 4px 2px 0;font-size:12px;">${a}</span>`).join('')}
+                            </span>
+                        </div>
+                    `;
+                }
+
                 if (data.related_entities && data.related_entities.length > 0) {
                     html += '<div style="margin-top:15px;"><div class="detail-label">关联实体:</div>';
                     data.related_entities.forEach(rel => {
@@ -694,7 +707,10 @@
         function showTooltip(event, node) {
             const tooltip = document.createElement('div');
             tooltip.className = 'tooltip';
-            tooltip.innerHTML = `<strong>${node.label}</strong><br>类型: ${node.type}`;
+            const aliasLine = (node.aliases && node.aliases.length)
+                ? `<br><span style="font-size:11px;color:#aaa;">别名: ${node.aliases.join('、')}</span>`
+                : '';
+            tooltip.innerHTML = `<strong>${node.label}</strong><br>类型: ${node.type}${aliasLine}`;
             tooltip.style.left = (event.pageX + 10) + 'px';
             tooltip.style.top = (event.pageY - 10) + 'px';
             document.body.appendChild(tooltip);
@@ -742,21 +758,21 @@
             loadGraphData();
         }
 
-        // 搜索实体
+        // 搜索实体（支持规范名及别名，如搜索“北大”可定位“北京大学”）
         function searchEntities() {
             const keyword = document.getElementById('searchInput').value.toLowerCase();
 
+            const matchNode = d => {
+                if (!keyword) return true;
+                if (d.label.toLowerCase().includes(keyword)) return true;
+                return (d.aliases || []).some(a => a.toLowerCase().includes(keyword));
+            };
+
             g.selectAll('.node circle')
-                .attr('opacity', d => {
-                    if (!keyword) return 1;
-                    return d.label.toLowerCase().includes(keyword) ? 1 : 0.2;
-                });
+                .attr('opacity', d => matchNode(d) ? 1 : 0.2);
 
             g.selectAll('.node text')
-                .attr('opacity', d => {
-                    if (!keyword) return 1;
-                    return d.label.toLowerCase().includes(keyword) ? 1 : 0.2;
-                });
+                .attr('opacity', d => matchNode(d) ? 1 : 0.2);
         }
 
         // 按类型筛选
